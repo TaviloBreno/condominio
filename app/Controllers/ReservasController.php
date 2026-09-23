@@ -5,18 +5,21 @@ namespace App\Controllers;
 use App\Models\AreaModel;
 use App\Models\ReservaModel;
 use App\Models\ResidenteModel;
+use App\Services\NotificacaoService;
 
 class ReservasController extends BaseController
 {
     protected ReservaModel $reservaModel;
     protected AreaModel $areaModel;
     protected ResidenteModel $residenteModel;
+    protected NotificacaoService $notificacaoService;
 
     public function __construct()
     {
-        $this->reservaModel   = new ReservaModel();
-        $this->areaModel      = new AreaModel();
-        $this->residenteModel = new ResidenteModel();
+        $this->reservaModel        = new ReservaModel();
+        $this->areaModel           = new AreaModel();
+        $this->residenteModel      = new ResidenteModel();
+        $this->notificacaoService  = new NotificacaoService();
         helper(['form', 'url', 'text']);
     }
 
