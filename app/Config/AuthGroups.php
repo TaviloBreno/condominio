@@ -61,6 +61,10 @@ class AuthGroups extends ShieldAuthGroups
             'title'       => 'Beta User',
             'description' => 'Has access to beta-level features.',
         ],
+        'residente' => [
+            'title'       => 'Residente',
+            'description' => 'Moradores e residentes do condomínio com acesso ao portal do morador.',
+        ],
     ];
 
     /**
