@@ -198,4 +198,137 @@ class ResidenteModel extends Model
     {
         return $this->where('email', $email)->first();
     }
+
+    /*
+     * --------------------------------------------------------------------
+     * Métodos de Criação, Edição, Exclusão e Regras de Negócio (Item 5)
+     * --------------------------------------------------------------------
+     */
+
+    /**
+     * Vincula bidirecionalmente o residente ao usuário do Shield em uma transação segura
+     */
+    public function vincularUsuario(int $residenteId, int $userId): bool
+    {
+        $this->db->transStart();
+
+        // Atualiza residente com o ID do usuário
+        $this->update($residenteId, ['user_id' => $userId]);
+
+        // Atualiza a tabela users com o ID do residente e tipo
+        $this->db->table('users')
+                 ->where('id', $userId)
+                 ->update([
+                     'residente_id' => $residenteId,
+                     'tipo'         => 'residente',
+                 ]);
+
+        $this->db->transComplete();
+
+        return $this->db->transStatus();
+    }
+
+    /**
+     * Desvincula o usuário do residente
+     */
+    public function desvincularUsuario(int $residenteId): bool
+    {
+        $residente = $this->find($residenteId);
+        if (! $residente || ! $residente->user_id) {
+            return true;
+        }
+
+        $this->db->transStart();
+
+        $userId = $residente->user_id;
+
+        $this->update($residenteId, ['user_id' => null]);
+
+        $this->db->table('users')
+                 ->where('id', $userId)
+                 ->update(['residente_id' => null]);
+
+        $this->db->transComplete();
+
+        return $this->db->transStatus();
+    }
+
+    /**
+     * Alterna status do residente (Ativo <-> Bloqueado)
+     * Quando bloqueado, também desativa o acesso do usuário no Shield
+     */
+    public function alternarStatus(int $residenteId): bool
+    {
+        $residente = $this->find($residenteId);
+        if (! $residente) {
+            return false;
+        }
+
+        $novoStatus = $residente->ativo ? 0 : 1;
+
+        $this->db->transStart();
+
+        $this->update($residenteId, ['ativo' => $novoStatus]);
+
+        if ($residente->user_id) {
+            $this->db->table('users')
+                     ->where('id', $residente->user_id)
+                     ->update([
+                         'active'         => $novoStatus,
+                         'status_message' => $novoStatus ? null : 'Acesso suspenso pela administração do condomínio.',
+                     ]);
+        }
+
+        $this->db->transComplete();
+
+        return $this->db->transStatus();
+    }
+
+    /**
+     * Exclui o residente (Soft Delete por padrão ou permanente)
+     * Desativa o usuário vinculado caso exista
+     */
+    public function excluirResidente(int $residenteId, bool $purge = false): bool
+    {
+        $residente = $this->find($residenteId);
+        if (! $residente) {
+            return false;
+        }
+
+        $this->db->transStart();
+
+        if ($residente->user_id) {
+            // Desativa usuário vinculado para revogar acesso imediatamente
+            $this->db->table('users')
+                     ->where('id', $residente->user_id)
+                     ->update([
+                         'active'         => 0,
+                         'status_message' => 'Residente desativado/removido do condomínio.',
+                     ]);
+        }
+
+        $this->delete($residenteId, $purge);
+
+        $this->db->transComplete();
+
+        return $this->db->transStatus();
+    }
+
+    /**
+     * Verifica se a unidade/bloco já possui residente cadastrado
+     */
+    public function unidadeOcupada(string $unidade, ?string $bloco = null, ?int $ignorarResidenteId = null): bool
+    {
+        $builder = $this->where('unidade', $unidade);
+
+        if ($bloco !== null && $bloco !== '') {
+            $builder->where('bloco', $bloco);
+        }
+
+        if ($ignorarResidenteId !== null) {
+            $builder->where('id !=', $ignorarResidenteId);
+        }
+
+        return $builder->countAllResults() > 0;
+    }
 }
