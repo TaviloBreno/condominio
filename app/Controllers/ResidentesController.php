@@ -75,14 +75,54 @@ class ResidentesController extends BaseController
         return view('Residentes/index', $dados);
     }
 
-    public function novo()
+    /**
+     * Exibe formulário de cadastro de novo residente (Item 13)
+     */
+    public function novo(): string
     {
-        return redirect()->to(route_to('residentes.index'));
+        $dados = [
+            'title'  => 'Novo Residente',
+            'errors' => session('errors') ?? [],
+        ];
+
+        return view('Residentes/novo', $dados);
     }
 
+    /**
+     * Processa a criação de um novo residente e validações (Item 13)
+     */
     public function criar()
     {
-        return redirect()->to(route_to('residentes.index'));
+        $dados = [
+            'nome'     => trim((string) $this->request->getPost('nome')),
+            'cpf'      => preg_replace('/\D/', '', (string) $this->request->getPost('cpf')),
+            'email'    => strtolower(trim((string) $this->request->getPost('email'))),
+            'telefone' => preg_replace('/\D/', '', (string) $this->request->getPost('telefone')),
+            'unidade'  => trim((string) $this->request->getPost('unidade')),
+            'bloco'    => trim((string) $this->request->getPost('bloco')) ?: null,
+            'torre'    => trim((string) $this->request->getPost('torre')) ?: null,
+            'ativo'    => (int) ($this->request->getPost('ativo') ?? 1),
+        ];
+
+        // Validação e persistência via ResidenteModel
+        if (! $this->residenteModel->save($dados)) {
+            return redirect()->back()
+                             ->withInput()
+                             ->with('errors', $this->residenteModel->errors())
+                             ->with('erro', 'Por favor, corrija os erros apontados no formulário.');
+        }
+
+        $residenteId = (int) $this->residenteModel->getInsertID();
+
+        // Se marcou para criar usuário automaticamente, avisa ou delega
+        $criarUsuario = (bool) $this->request->getPost('criar_usuario');
+        if ($criarUsuario) {
+            return redirect()->to(route_to('residentes.detalhes', $residenteId))
+                             ->with('sucesso', 'Residente cadastrado com sucesso! Prossiga com a criação do acesso Shield.');
+        }
+
+        return redirect()->to(route_to('residentes.detalhes', $residenteId))
+                         ->with('sucesso', 'Residente cadastrado com sucesso!');
     }
 
     /**
@@ -135,19 +175,108 @@ class ResidentesController extends BaseController
         return view('Residentes/editar', $dados);
     }
 
+    /**
+     * Processa a atualização do residente, validação e sincronização com Shield (Itens 11 e 12)
+     */
     public function atualizar(int $id)
     {
-        return redirect()->to(route_to('residentes.index'));
+        $residente = $this->residenteModel->obterComUsuario($id);
+
+        if (! $residente) {
+            return redirect()->to(route_to('residentes.index'))
+                             ->with('erro', 'Residente não encontrado.');
+        }
+
+        $dados = [
+            'id'       => $id,
+            'nome'     => trim((string) $this->request->getPost('nome')),
+            'cpf'      => preg_replace('/\D/', '', (string) $this->request->getPost('cpf')),
+            'email'    => strtolower(trim((string) $this->request->getPost('email'))),
+            'telefone' => preg_replace('/\D/', '', (string) $this->request->getPost('telefone')),
+            'unidade'  => trim((string) $this->request->getPost('unidade')),
+            'bloco'    => trim((string) $this->request->getPost('bloco')) ?: null,
+            'torre'    => trim((string) $this->request->getPost('torre')) ?: null,
+            'ativo'    => (int) $this->request->getPost('ativo'),
+        ];
+
+        // Validação no Model
+        if (! $this->residenteModel->save($dados)) {
+            return redirect()->back()
+                             ->withInput()
+                             ->with('errors', $this->residenteModel->errors())
+                             ->with('erro', 'Ocorreram erros de validação. Por favor, verifique os campos.');
+        }
+
+        // Regras de negócio pós-atualização (Item 12):
+        // Sincroniza dados com usuário Shield se existir
+        if ($residente->user_id) {
+            $db = \Config\Database::connect();
+            $db->transStart();
+
+            // Sincroniza status ativo/bloqueado
+            $db->table('users')
+               ->where('id', $residente->user_id)
+               ->update([
+                   'active'         => $dados['ativo'],
+                   'status_message' => $dados['ativo'] ? null : 'Acesso suspenso pela administração do condomínio.',
+               ]);
+
+            // Se o e-mail foi alterado, atualiza o secret de autenticação
+            if ($residente->email !== $dados['email']) {
+                $db->table('auth_identities')
+                   ->where('user_id', $residente->user_id)
+                   ->where('type', 'email_password')
+                   ->update(['secret' => $dados['email']]);
+            }
+
+            $db->transComplete();
+        }
+
+        return redirect()->to(route_to('residentes.detalhes', $id))
+                         ->with('sucesso', 'Cadastro do residente atualizado com sucesso!');
     }
 
+    /**
+     * Processa a exclusão lógica do residente e revogação de acesso (Item 13)
+     */
     public function excluir(int $id)
     {
-        return redirect()->to(route_to('residentes.index'));
+        $residente = $this->residenteModel->find($id);
+
+        if (! $residente) {
+            return redirect()->to(route_to('residentes.index'))
+                             ->with('erro', 'Residente não encontrado para exclusão.');
+        }
+
+        if ($this->residenteModel->excluirResidente($id)) {
+            return redirect()->to(route_to('residentes.index'))
+                             ->with('sucesso', "Residente {$residente->nome} excluído com sucesso!");
+        }
+
+        return redirect()->to(route_to('residentes.index'))
+                         ->with('erro', 'Não foi possível excluir o residente. Tente novamente.');
     }
 
+    /**
+     * Alterna status (Ativo <-> Bloqueado) do residente (Item 13)
+     */
     public function toggleStatus(int $id)
     {
-        return redirect()->to(route_to('residentes.index'));
+        $residente = $this->residenteModel->find($id);
+
+        if (! $residente) {
+            return redirect()->to(route_to('residentes.index'))
+                             ->with('erro', 'Residente não encontrado.');
+        }
+
+        if ($this->residenteModel->alternarStatus($id)) {
+            $novoStatusTexto = $residente->ativo ? 'bloqueado' : 'ativado';
+            return redirect()->back()
+                             ->with('sucesso', "Residente {$residente->nome} foi {$novoStatusTexto} com sucesso!");
+        }
+
+        return redirect()->back()
+                         ->with('erro', 'Não foi possível alterar o status do residente.');
     }
 
     public function criarUsuario(int $id)
