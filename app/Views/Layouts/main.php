@@ -234,77 +234,53 @@
                 <i class="fa fa-cog fixed-plugin-button-nav cursor-pointer"></i>
               </a>
             </li>
+            <?php
+              $notificacaoModelNav = new \App\Models\NotificacaoModel();
+              $totalNaoLidas = $notificacaoModelNav->contarNaoLidas();
+              $notificacoesNav = $notificacaoModelNav->listarNaoLidas(5);
+            ?>
             <li class="nav-item dropdown pe-2 d-flex align-items-center">
-              <a href="javascript:;" class="nav-link text-body p-0" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+              <a href="javascript:;" class="nav-link text-body p-0 position-relative" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false" title="Notificações">
                 <i class="fa fa-bell cursor-pointer"></i>
+                <?php if ($totalNaoLidas > 0): ?>
+                  <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem; padding: 0.25em 0.45em;">
+                    <?= esc($totalNaoLidas) ?>
+                  </span>
+                <?php endif; ?>
               </a>
-              <ul class="dropdown-menu  dropdown-menu-end  px-2 py-3 me-sm-n4" aria-labelledby="dropdownMenuButton">
-                <li class="mb-2">
-                  <a class="dropdown-item border-radius-md" href="javascript:;">
-                    <div class="d-flex py-1">
-                      <div class="my-auto">
-                        <img src="<?= base_url('assets/') ?>img/team-2.jpg" class="avatar avatar-sm  me-3 ">
-                      </div>
-                      <div class="d-flex flex-column justify-content-center">
-                        <h6 class="text-sm font-weight-normal mb-1">
-                          <span class="font-weight-bold">New message</span> from Laur
-                        </h6>
-                        <p class="text-xs text-secondary mb-0">
-                          <i class="fa fa-clock me-1"></i>
-                          13 minutes ago
-                        </p>
-                      </div>
-                    </div>
-                  </a>
+              <ul class="dropdown-menu dropdown-menu-end px-2 py-3 me-sm-n4 shadow" aria-labelledby="dropdownMenuButton" style="min-width: 300px;">
+                <li class="px-2 pb-2 mb-2 border-bottom d-flex justify-content-between align-items-center">
+                  <h6 class="text-xs font-weight-bold mb-0 text-dark">Notificações</h6>
+                  <span class="badge bg-gradient-primary text-xxs"><?= esc($totalNaoLidas) ?> pendentes</span>
                 </li>
-                <li class="mb-2">
-                  <a class="dropdown-item border-radius-md" href="javascript:;">
-                    <div class="d-flex py-1">
-                      <div class="my-auto">
-                        <img src="<?= base_url('assets/') ?>img/small-logos/logo-spotify.svg" class="avatar avatar-sm bg-gradient-dark  me-3 ">
-                      </div>
-                      <div class="d-flex flex-column justify-content-center">
-                        <h6 class="text-sm font-weight-normal mb-1">
-                          <span class="font-weight-bold">New album</span> by Travis Scott
-                        </h6>
-                        <p class="text-xs text-secondary mb-0">
-                          <i class="fa fa-clock me-1"></i>
-                          1 day
-                        </p>
-                      </div>
-                    </div>
-                  </a>
-                </li>
-                <li>
-                  <a class="dropdown-item border-radius-md" href="javascript:;">
-                    <div class="d-flex py-1">
-                      <div class="avatar avatar-sm bg-gradient-secondary  me-3  my-auto">
-                        <svg width="12px" height="12px" viewBox="0 0 43 36" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-                          <title>credit-card</title>
-                          <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                            <g transform="translate(-2169.000000, -745.000000)" fill="#FFFFFF" fill-rule="nonzero">
-                              <g transform="translate(1716.000000, 291.000000)">
-                                <g transform="translate(453.000000, 454.000000)">
-                                  <path class="color-background" d="M43,10.7482083 L43,3.58333333 C43,1.60354167 41.3964583,0 39.4166667,0 L3.58333333,0 C1.60354167,0 0,1.60354167 0,3.58333333 L0,10.7482083 L43,10.7482083 Z" opacity="0.593633743"></path>
-                                  <path class="color-background" d="M0,16.125 L0,32.25 C0,34.2297917 1.60354167,35.8333333 3.58333333,35.8333333 L39.4166667,35.8333333 C41.3964583,35.8333333 43,34.2297917 43,32.25 L43,16.125 L0,16.125 Z M19.7083333,26.875 L7.16666667,26.875 L7.16666667,23.2916667 L19.7083333,23.2916667 L19.7083333,26.875 Z M35.8333333,26.875 L28.6666667,26.875 L28.6666667,23.2916667 L35.8333333,23.2916667 L35.8333333,26.875 Z"></path>
-                                </g>
-                              </g>
-                            </g>
-                          </g>
-                        </svg>
-                      </div>
-                      <div class="d-flex flex-column justify-content-center">
-                        <h6 class="text-sm font-weight-normal mb-1">
-                          Payment successfully completed
-                        </h6>
-                        <p class="text-xs text-secondary mb-0">
-                          <i class="fa fa-clock me-1"></i>
-                          2 days
-                        </p>
-                      </div>
-                    </div>
-                  </a>
-                </li>
+                <?php if (empty($notificacoesNav)): ?>
+                  <li class="py-3 text-center text-xs text-secondary">
+                    <i class="far fa-bell-slash d-block fa-2x mb-2 text-muted"></i>
+                    Nenhuma notificação pendente.
+                  </li>
+                <?php else: ?>
+                  <?php foreach ($notificacoesNav as $notif): ?>
+                    <li class="mb-2">
+                      <a class="dropdown-item border-radius-md" href="<?= $notif->reserva_id ? base_url('reservas/detalhes/' . $notif->reserva_id) : 'javascript:;' ?>">
+                        <div class="d-flex py-1">
+                          <div class="my-auto me-3">
+                            <div class="avatar avatar-sm bg-gray-100 border-radius-md d-flex align-items-center justify-content-center">
+                              <i class="<?= esc($notif->getIcone()) ?>"></i>
+                            </div>
+                          </div>
+                          <div class="d-flex flex-column justify-content-center">
+                            <h6 class="text-xs font-weight-bold mb-0 text-dark text-truncate" style="max-width: 200px;">
+                              <?= esc($notif->titulo) ?>
+                            </h6>
+                            <p class="text-xxs text-secondary mb-0">
+                              <i class="fa fa-clock me-1"></i><?= esc($notif->getTempoRelativo()) ?>
+                            </p>
+                          </div>
+                        </div>
+                      </a>
+                    </li>
+                  <?php endforeach; ?>
+                <?php endif; ?>
               </ul>
             </li>
           </ul>

@@ -108,8 +108,14 @@ class ReservasController extends BaseController
                              ->with('erro', $primeiroErro);
         }
 
+        // Dispara notificação por e-mail e registro interno para o síndico (Item 11)
+        $reserva = $this->reservaModel->buscarDetalhada($reservaId);
+        if ($reserva) {
+            $this->notificacaoService->notificarNovaReserva($reserva);
+        }
+
         return redirect()->to(route_to('reservas.detalhes', $reservaId))
-                         ->with('sucesso', 'Reserva criada e confirmada com sucesso!');
+                         ->with('sucesso', 'Reserva criada e confirmada! O síndico foi notificado.');
     }
 
     /**
@@ -133,20 +139,30 @@ class ReservasController extends BaseController
     }
 
     /**
-     * Cancela uma reserva existente (Item 8)
+     * Cancela uma reserva existente com notificação e liberação de horário (Item 12)
      */
     public function cancelar(int $id)
     {
+        $reserva = $this->reservaModel->buscarDetalhada($id);
+
+        if (! $reserva) {
+            return redirect()->to(route_to('reservas.index'))
+                             ->with('erro', 'Reserva não encontrada.');
+        }
+
         $motivo = trim((string) $this->request->getPost('motivo'));
 
         if (! $this->reservaModel->cancelarReserva($id, $motivo)) {
             $erros = $this->reservaModel->errors();
-            $msg = ! empty($erros) ? reset($erros) : 'Não foi possível cancelar a reserva.';
+            $msg   = ! empty($erros) ? reset($erros) : 'Não foi possível cancelar a reserva.';
 
             return redirect()->back()->with('erro', $msg);
         }
 
-        return redirect()->back()->with('sucesso', 'Reserva cancelada com sucesso!');
+        // Notifica o síndico do cancelamento e registra no banco (Item 12)
+        $this->notificacaoService->notificarCancelamentoReserva($reserva, $motivo);
+
+        return redirect()->back()->with('sucesso', 'Reserva cancelada com sucesso! O horário foi liberado.');
     }
 
     /**
