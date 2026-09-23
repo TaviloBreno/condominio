@@ -30,6 +30,11 @@ use CodeIgniter\Shield\Models\UserModel;
 class Auth extends ShieldAuth
 {
     /**
+     * User Model provider extended with resident fields
+     */
+    public string $userProvider = \App\Models\UserModel::class;
+
+    /**
      * ////////////////////////////////////////////////////////////////////
      * AUTHENTICATION
      * ////////////////////////////////////////////////////////////////////

@@ -20,6 +20,7 @@ $routes->group('residentes', static function ($routes) {
     $routes->post('atualizar/(:num)', 'ResidentesController::atualizar/$1', ['as' => 'residentes.atualizar']);
     $routes->post('excluir/(:num)', 'ResidentesController::excluir/$1', ['as' => 'residentes.excluir']);
     $routes->post('toggle-status/(:num)', 'ResidentesController::toggleStatus/$1', ['as' => 'residentes.toggleStatus']);
+    $routes->get('usuario/(:num)/novo', 'ResidentesController::novoUsuario/$1', ['as' => 'residentes.novoUsuario']);
     $routes->post('usuario/(:num)/criar', 'ResidentesController::criarUsuario/$1', ['as' => 'residentes.criarUsuario']);
     $routes->post('usuario/(:num)/toggle-acesso', 'ResidentesController::toggleAcessoUsuario/$1', ['as' => 'residentes.toggleAcessoUsuario']);
 });
