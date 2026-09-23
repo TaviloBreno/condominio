@@ -1,0 +1,60 @@
+<USER_REQUEST>
+# PROMPT — Módulo: Áreas Comuns, Reservas e Cobranças
+
+# Papel
+Você é um desenvolvedor sênior de CodeIgniter 4, especialista em sistemas de gestão condominial (padrão MVC do framework: migrations, models, entities, controllers, views, notificações).
+
+# Objetivo
+Implementar, do zero e nesta ordem, o módulo de "Áreas Comuns" (cadastro, edição e exclusão das áreas compartilhadas do condomínio) e o módulo de "Reservas e Cobranças" (reserva de áreas pelos residentes, notificação ao síndico, cancelamento e geração/exibição de cobranças vinculadas à reserva).
+
+# Convenções do projeto
+- Framework: CodeIgniter 4 (app/Database/Migrations, app/Models, app/Entities, app/Controllers, app/Views).
+- Use Entity (classe que estende \CodeIgniter\Entity\Entity) associada a cada model, não apenas array.
+- Reservas e Cobranças dependem das tabelas `areas` (criadas neste mesmo prompt) e `residentes` (assuma já existente de um módulo anterior).
+- Toda tabela usa timestamps (created_at, updated_at, deleted_at) e soft delete quando fizer sentido.
+- Notificações ao síndico podem ser por e-mail (Email service do CI4) e/ou registro em tabela de notificações — defina a abordagem no item correspondente antes de implementar.
+- Toda ação de escrita usa flashdata para mensagens de sucesso/erro.
+- Validar dados no Model antes de persistir, incluindo checagem de conflito de horário/data na reserva.
+
+# Como trabalhar
+1. Execute o checklist abaixo NA ORDEM, um item por vez.
+2. Para cada item, entregue: arquivo(s) criado(s)/alterado(s) com caminho completo, código completo do trecho relevante, e explicação breve (2-4 linhas).
+3. Ao terminar um item, atualize o checklist trocando [ ] por [x] e mostre o checklist atualizado antes de seguir para o próximo.
+4. Se algo não estiver claro (campos da tabela áreas, regras de cálculo da cobrança, canal de notificação do síndico), pare, pergunte, e só depois continue.
+5. Não pule etapas nem antecipe código de itens futuros.
+
+# Checklist
+
+## Áreas Comuns
+- [ ] 1. Migration, Model e Entity de `areas` (nome, descrição, capacidade, horário de funcionamento, taxa/valor se houver, status/ativo, timestamps)
+- [ ] 2. Criação de uma área — rota, controller e formulário de cadastro (store)
+- [ ] 3. Edição e exclusão de áreas — formulário de edição, processamento do update e exclusão (soft delete) com mensagens de feedback
+
+## Reservas e Cobranças
+- [ ] 4. Migration, Model e Entity de `reservas` (área, residente, data, horário início/fim, status, timestamps)
+- [ ] 5. ReservaModel — parte 1: propriedades base ($table, $allowedFields, $validationRules)
+- [ ] 6. ReservaModel — parte 2: métodos de consulta (verificação de conflito de horário/data, listagem por área/residente)
+- [ ] 7. ReservaModel — parte final: métodos de criação, cancelamento e demais regras de negócio
+- [ ] 8. Exibição das reservas — listagem (e/ou calendário) de reservas existentes
+- [ ] 9. Criação de reserva — rota, controller e formulário de criação pelo residente
+- [ ] 10. Notificação ao síndico de nova reserva — parte 1: definição do canal (e-mail/tabela) e estrutura base
+- [ ] 11. Notificação ao síndico de nova reserva — parte final: disparo, template e integração com a criação da reserva
+- [ ] 12. Cancelamento de reserva — ação, regras (prazo, permissão) e mensagens de feedback
+- [ ] 13. Criação de cobrança — parte 1: migration/Model/Entity de `cobrancas` vinculada à reserva
+- [ ] 14. Criação de cobrança — parte 2: cálculo de valores e regras de geração automática
+- [ ] 15. Criação de cobrança — parte final: persistência, vínculo com residente/reserva e status de pagamento
+- [ ] 16. Exibição dos dados da cobrança — tela de detalhes/extrato da cobrança para o residente
+
+# Formato de saída
+Para cada item: "### Item N — <título>", seguido do código e da explicação. Ao final de cada item, o checklist atualizado em markdown.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-23T02:34:15-03:00.
+
+The user's current state is as follows:
+Active Document: c:\programacao\projetos\condominio\app\Models\ResidenteModel.php (LANGUAGE_PHP)
+Cursor is on line: 1
+Other open documents:
+- c:\programacao\projetos\condominio\app\Models\ResidenteModel.php (LANGUAGE_PHP)
+- c:\programacao\projetos\condominio\writable\patch_layout.php (LANGUAGE_PHP)
+</ADDITIONAL_METADATA>
