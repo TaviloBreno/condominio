@@ -230,12 +230,9 @@
                 <p class="text-xs text-secondary mb-3">
                   Este morador ainda não possui credenciais para login no aplicativo ou portal do condomínio.
                 </p>
-                <form method="post" action="<?= route_to('residentes.criarUsuario', $residente->id) ?>">
-                  <?= csrf_field() ?>
-                  <button type="submit" class="btn bg-gradient-info btn-sm mb-0 w-100">
-                    <i class="fas fa-plus-circle me-1"></i> Gerar Acesso Shield Agora
-                  </button>
-                </form>
+                <a href="<?= route_to('residentes.novoUsuario', $residente->id) ?>" class="btn bg-gradient-info btn-sm mb-0 w-100">
+                  <i class="fas fa-user-plus me-1"></i> Configurar e Gerar Acesso Shield
+                </a>
               </div>
             <?php endif; ?>
           </div>
