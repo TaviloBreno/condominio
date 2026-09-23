@@ -112,10 +112,14 @@ class ReservasController extends BaseController
         $reserva = $this->reservaModel->buscarDetalhada($reservaId);
         if ($reserva) {
             $this->notificacaoService->notificarNovaReserva($reserva);
+
+            // Geração automática de cobrança vinculada à reserva (Item 14 e 15)
+            $cobrancaModel = new \App\Models\CobrancaModel();
+            $cobrancaModel->gerarParaReserva($reserva);
         }
 
         return redirect()->to(route_to('reservas.detalhes', $reservaId))
-                         ->with('sucesso', 'Reserva criada e confirmada! O síndico foi notificado.');
+                         ->with('sucesso', 'Reserva criada e confirmada! O síndico foi notificado e a cobrança gerada.');
     }
 
     /**
@@ -161,6 +165,10 @@ class ReservasController extends BaseController
 
         // Notifica o síndico do cancelamento e registra no banco (Item 12)
         $this->notificacaoService->notificarCancelamentoReserva($reserva, $motivo);
+
+        // Cancela eventuais cobranças pendentes da reserva (Item 15)
+        $cobrancaModel = new \App\Models\CobrancaModel();
+        $cobrancaModel->cancelarPorReserva($id);
 
         return redirect()->back()->with('sucesso', 'Reserva cancelada com sucesso! O horário foi liberado.');
     }
