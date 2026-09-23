@@ -192,4 +192,164 @@ class ReservaModel extends Model
                     ->where('reservas.id', $id)
                     ->first();
     }
+
+    // =========================================================================
+    // Item 7: Métodos de Criação, Cancelamento e Demais Regras de Negócio
+    // =========================================================================
+
+    /**
+     * Executa a criação de uma reserva com validação de regras de negócio:
+     * - Status da área (deve estar ativa)
+     * - Status do morador (deve estar ativo)
+     * - Data não retroativa
+     * - Horários compatíveis com o funcionamento da área comum
+     * - Prevenção de conflito de horários (sobreposição)
+     * - Definição da taxa padrão da área quando não especificada
+     *
+     * @param array $dados
+     * @return int|false ID da reserva inserida ou false em caso de falha
+     */
+    public function criarReserva(array $dados): int|false
+    {
+        $areaModel = new AreaModel();
+        $area = $areaModel->find($dados['area_id'] ?? 0);
+
+        if (! $area || ! $area->ativo) {
+            $this->errors = ['area_id' => 'A área comum selecionada não está disponível para reservas.'];
+            return false;
+        }
+
+        $residenteModel = new ResidenteModel();
+        $residente = $residenteModel->find($dados['residente_id'] ?? 0);
+
+        if (! $residente || ! $residente->ativo) {
+            $this->errors = ['residente_id' => 'O morador selecionado está inativo ou bloqueado no sistema.'];
+            return false;
+        }
+
+        // Validação de data não retroativa
+        $dataReserva = $dados['data_reserva'] ?? '';
+        if (strtotime($dataReserva) < strtotime(date('Y-m-d'))) {
+            $this->errors = ['data_reserva' => 'Não é permitido criar reservas para datas passadas.'];
+            return false;
+        }
+
+        // Validação de intervalo de horários
+        $horarioInicio = substr((string) ($dados['horario_inicio'] ?? ''), 0, 5);
+        $horarioFim    = substr((string) ($dados['horario_fim'] ?? ''), 0, 5);
+
+        if ($horarioFim <= $horarioInicio) {
+            $this->errors = ['horario_fim' => 'O horário de término deve ser posterior ao horário de início.'];
+            return false;
+        }
+
+        // Validação contra o expediente de funcionamento da área
+        $areaInicio = substr((string) $area->horario_inicio, 0, 5);
+        $areaFim    = substr((string) $area->horario_fim, 0, 5);
+
+        if ($horarioInicio < $areaInicio || $horarioFim > $areaFim) {
+            $this->errors = [
+                'horario_inicio' => "O horário solicitado ({$horarioInicio} às {$horarioFim}) ultrapassa o funcionamento da área ({$areaInicio} às {$areaFim}).",
+            ];
+            return false;
+        }
+
+        // Validação de conflito de agenda (sobreposição)
+        if ($this->temConflito((int) $area->id, $dataReserva, $horarioInicio, $horarioFim)) {
+            $this->errors = [
+                'conflito' => "Já existe uma reserva agendada para o espaço '{$area->nome}' nesta data e faixa de horário.",
+            ];
+            return false;
+        }
+
+        // Se a taxa não foi especificada, herda da configuração da área
+        if (! isset($dados['valor_taxa']) || $dados['valor_taxa'] === '' || $dados['valor_taxa'] === null) {
+            $dados['valor_taxa'] = (float) $area->taxa_reserva;
+        }
+
+        // Status inicial padrão
+        if (empty($dados['status'])) {
+            $dados['status'] = 'confirmada';
+        }
+
+        $id = $this->insert($dados, true);
+
+        if (! $id) {
+            return false;
+        }
+
+        return (int) $id;
+    }
+
+    /**
+     * Cancela uma reserva existente aplicando validação de prazo e justificativa
+     *
+     * @param int $reservaId
+     * @param string|null $motivo
+     * @return bool
+     */
+    public function cancelarReserva(int $reservaId, ?string $motivo = null): bool
+    {
+        $reserva = $this->find($reservaId);
+
+        if (! $reserva) {
+            $this->errors = ['reserva' => 'Reserva não encontrada.'];
+            return false;
+        }
+
+        if ($reserva->status === 'cancelada') {
+            $this->errors = ['status' => 'Esta reserva já se encontra cancelada.'];
+            return false;
+        }
+
+        if (! $reserva->podeCancelar()) {
+            $this->errors = ['prazo' => 'Não é permitido cancelar uma reserva retroativa ou já em andamento.'];
+            return false;
+        }
+
+        $observacoes = (string) $reserva->observacoes;
+        if (! empty($motivo)) {
+            $registroCancelamento = "[Cancelada em " . date('d/m/Y H:i') . ": " . trim($motivo) . "]";
+            $observacoes = trim($observacoes . "\n" . $registroCancelamento);
+        }
+
+        return (bool) $this->update($reservaId, [
+            'status'      => 'cancelada',
+            'observacoes' => $observacoes ?: null,
+        ]);
+    }
+
+    /**
+     * Altera o status da reserva para confirmada
+     */
+    public function confirmarReserva(int $reservaId): bool
+    {
+        $reserva = $this->find($reservaId);
+
+        if (! $reserva) {
+            $this->errors = ['reserva' => 'Reserva não encontrada.'];
+            return false;
+        }
+
+        return (bool) $this->update($reservaId, ['status' => 'confirmada']);
+    }
+
+    /**
+     * Valida se a reserva atende a antecedência mínima para cancelamento sem multa
+     */
+    public function podeSerCancelada(Reserva|int $reserva, int $horasAntecedencia = 24): bool
+    {
+        if (is_int($reserva)) {
+            $reserva = $this->find($reserva);
+        }
+
+        if (! $reserva || $reserva->status === 'cancelada') {
+            return false;
+        }
+
+        $timestampReserva = strtotime($reserva->data_reserva . ' ' . $reserva->horario_inicio);
+        $limiteCancelamento = time() + ($horasAntecedencia * 3600);
+
+        return $timestampReserva >= $limiteCancelamento;
+    }
 }
