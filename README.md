@@ -144,6 +144,8 @@ As seguintes migrações serão executadas em ordem cronológica:
 3. `AddResidentFieldsToUsersTable` (Campos complementares na tabela `users`)
 4. `CreateAreasTable` (Tabela `areas`)
 5. `CreateReservasTable` (Tabela `reservas`)
+6. `CreateNotificacoesTable` (Tabela `notificacoes`)
+7. `CreateCobrancasTable` (Tabela `cobrancas`)
 
 ### Passo 5: Iniciar o Servidor de Desenvolvimento
 ```bash
@@ -178,6 +180,9 @@ Acesse no seu navegador: **[http://localhost:8080](http://localhost:8080)**
 | `POST` | `/reservas/criar` | `reservas.criar` | Validação anti-conflito e persistência |
 | `GET` | `/reservas/detalhes/(:num)` | `reservas.detalhes` | Comprovante detalhado da reserva |
 | `POST` | `/reservas/cancelar/(:num)` | `reservas.cancelar` | Cancelamento com registro de justificativa |
+| `GET` | `/cobrancas` | `cobrancas.index` | Gestão financeira e extrato de faturas |
+| `GET` | `/cobrancas/detalhes/(:num)` | `cobrancas.detalhes` | Fatura detalhada com pagamento PIX |
+| `POST` | `/cobrancas/pagar/(:num)` | `cobrancas.pagar` | Liquidação / confirmação de pagamento |
 
 ---
 
