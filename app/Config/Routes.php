@@ -36,4 +36,14 @@ $routes->group('areas', static function ($routes) {
     $routes->post('toggle-status/(:num)', 'AreasController::toggleStatus/$1', ['as' => 'areas.toggleStatus']);
 });
 
+// Módulo: Reservas e Cobranças
+$routes->group('reservas', static function ($routes) {
+    $routes->get('', 'ReservasController::index', ['as' => 'reservas.index']);
+    $routes->get('novo', 'ReservasController::novo', ['as' => 'reservas.novo']);
+    $routes->post('criar', 'ReservasController::criar', ['as' => 'reservas.criar']);
+    $routes->get('detalhes/(:num)', 'ReservasController::detalhes/$1', ['as' => 'reservas.detalhes']);
+    $routes->post('cancelar/(:num)', 'ReservasController::cancelar/$1', ['as' => 'reservas.cancelar']);
+    $routes->post('confirmar/(:num)', 'ReservasController::confirmar/$1', ['as' => 'reservas.confirmar']);
+});
+
 service('auth')->routes($routes);
