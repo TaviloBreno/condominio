@@ -85,14 +85,54 @@ class ResidentesController extends BaseController
         return redirect()->to(route_to('residentes.index'));
     }
 
+    /**
+     * Exibe a tela de detalhes completos do residente e usuário vinculado (Itens 8 e 9)
+     */
     public function detalhes(int $id)
     {
-        return redirect()->to(route_to('residentes.index'));
+        $residente = $this->residenteModel->obterComUsuario($id);
+
+        if (! $residente) {
+            return redirect()->to(route_to('residentes.index'))
+                             ->with('erro', 'Residente não encontrado.');
+        }
+
+        // Busca outros residentes cadastrados na mesma unidade/bloco
+        $coResidentesBuilder = $this->residenteModel->where('unidade', $residente->unidade)
+                                                    ->where('id !=', $id);
+        if (! empty($residente->bloco)) {
+            $coResidentesBuilder->where('bloco', $residente->bloco);
+        }
+        $outrosMoradores = $coResidentesBuilder->findAll();
+
+        $dados = [
+            'title'           => 'Detalhes do Residente: ' . $residente->nome,
+            'residente'       => $residente,
+            'outrosMoradores' => $outrosMoradores,
+        ];
+
+        return view('Residentes/detalhes', $dados);
     }
 
+    /**
+     * Formulário de edição pré-preenchido do residente (Item 10)
+     */
     public function editar(int $id)
     {
-        return redirect()->to(route_to('residentes.index'));
+        $residente = $this->residenteModel->obterComUsuario($id);
+
+        if (! $residente) {
+            return redirect()->to(route_to('residentes.index'))
+                             ->with('erro', 'Residente não encontrado para edição.');
+        }
+
+        $dados = [
+            'title'     => 'Editar Residente: ' . $residente->nome,
+            'residente' => $residente,
+            'errors'    => session('errors') ?? [],
+        ];
+
+        return view('Residentes/editar', $dados);
     }
 
     public function atualizar(int $id)
