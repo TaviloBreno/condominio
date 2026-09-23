@@ -279,13 +279,170 @@ class ResidentesController extends BaseController
                          ->with('erro', 'Não foi possível alterar o status do residente.');
     }
 
-    public function criarUsuario(int $id)
+    /**
+     * Tela para configurar e criar o usuário Shield vinculado (Item 14)
+     */
+    public function novoUsuario(int $id)
     {
-        return redirect()->to(route_to('residentes.index'));
+        $residente = $this->residenteModel->obterComUsuario($id);
+
+        if (! $residente) {
+            return redirect()->to(route_to('residentes.index'))
+                             ->with('erro', 'Residente não encontrado.');
+        }
+
+        if ($residente->user_id) {
+            return redirect()->to(route_to('residentes.detalhes', $id))
+                             ->with('erro', 'Este residente já possui uma conta de usuário Shield vinculada.');
+        }
+
+        // Sugestão de username amigável baseada no nome
+        $partesNome   = explode(' ', trim($residente->nome));
+        $primeiroNome = strtolower(iconv('UTF-8', 'ASCII//TRANSLIT', $partesNome[0] ?? 'morador'));
+        $ultimoNome   = strtolower(iconv('UTF-8', 'ASCII//TRANSLIT', end($partesNome) ?: 'residente'));
+        $primeiroNome = preg_replace('/[^a-z0-9]/', '', $primeiroNome);
+        $ultimoNome   = preg_replace('/[^a-z0-9]/', '', $ultimoNome);
+        $sugestaoUsername = $primeiroNome . '.' . $ultimoNome;
+
+        // Sugestão de senha segura temporária
+        $senhaSugerida = substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*'), 0, 10);
+
+        $dados = [
+            'title'            => 'Criar Usuário para ' . $residente->nome,
+            'residente'        => $residente,
+            'sugestaoUsername' => $sugestaoUsername,
+            'senhaSugerida'    => $senhaSugerida,
+            'errors'           => session('errors') ?? [],
+        ];
+
+        return view('Residentes/novo_usuario', $dados);
     }
 
+    /**
+     * Cria e vincula o usuário do Shield ao residente (Item 15)
+     */
+    public function criarUsuario(int $id)
+    {
+        $residente = $this->residenteModel->obterComUsuario($id);
+
+        if (! $residente) {
+            return redirect()->to(route_to('residentes.index'))
+                             ->with('erro', 'Residente não encontrado.');
+        }
+
+        if ($residente->user_id) {
+            return redirect()->to(route_to('residentes.detalhes', $id))
+                             ->with('erro', 'Este residente já possui um usuário vinculado.');
+        }
+
+        $username = trim((string) $this->request->getPost('username'));
+        $email    = strtolower(trim((string) ($this->request->getPost('email') ?: $residente->email)));
+        $password = trim((string) $this->request->getPost('password'));
+
+        // Se a senha não foi informada, gera uma temporária
+        if (empty($password)) {
+            $password = substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*'), 0, 10);
+        }
+
+        // Validação dos dados do usuário
+        $validation = \Config\Services::validation();
+        $validation->setRules([
+            'username' => 'required|min_length[3]|max_length[30]|is_unique[users.username]',
+            'email'    => 'required|valid_email|is_unique[auth_identities.secret]',
+            'password' => 'required|min_length[8]',
+        ], [
+            'username' => [
+                'required'   => 'O nome de usuário é obrigatório.',
+                'min_length' => 'O nome de usuário deve ter pelo menos 3 caracteres.',
+                'is_unique'  => 'Este nome de usuário já está em uso por outra conta.',
+            ],
+            'email' => [
+                'required'    => 'O e-mail é obrigatório.',
+                'valid_email' => 'Informe um e-mail válido.',
+                'is_unique'   => 'Este e-mail já está em uso por outro usuário no sistema.',
+            ],
+            'password' => [
+                'required'   => 'A senha é obrigatória.',
+                'min_length' => 'A senha deve conter pelo menos 8 caracteres.',
+            ],
+        ]);
+
+        if (! $validation->run(['username' => $username, 'email' => $email, 'password' => $password])) {
+            return redirect()->back()
+                             ->withInput()
+                             ->with('errors', $validation->getErrors())
+                             ->with('erro', 'Corrija os erros para criar a conta de acesso.');
+        }
+
+        // Cria o usuário através do Shield
+        $usersProvider = auth()->getProvider();
+        $userEntityClass = $usersProvider->returnType;
+
+        $user = new $userEntityClass([
+            'username'        => $username,
+            'email'           => $email,
+            'password'        => $password,
+            'active'          => 1,
+            'residente_id'    => $id,
+            'tipo'            => 'residente',
+            'primeiro_acesso' => 1,
+        ]);
+
+        $usersProvider->save($user);
+        $userId = $usersProvider->getInsertID();
+
+        // Associa ao grupo/role 'residente'
+        $createdUser = $usersProvider->findById($userId);
+        if ($createdUser && method_exists($createdUser, 'addGroup')) {
+            $createdUser->addGroup('residente');
+        }
+
+        // Vincula bidirecionalmente na base do condomínio
+        $this->residenteModel->vincularUsuario($id, $userId);
+
+        // Se o e-mail cadastrado diferir, sincroniza no residente
+        if ($residente->email !== $email) {
+            $this->residenteModel->update($id, ['email' => $email]);
+        }
+
+        return redirect()->to(route_to('residentes.detalhes', $id))
+                         ->with('sucesso', "Usuário criado com sucesso para {$residente->nome}! Login: <strong>{$username}</strong> | Senha temporária: <strong>{$password}</strong> (repasse estas credenciais ao morador).");
+    }
+
+    /**
+     * Alterna o status de acesso do usuário Shield (Item 16)
+     */
     public function toggleAcessoUsuario(int $id)
     {
-        return redirect()->to(route_to('residentes.index'));
+        $residente = $this->residenteModel->obterComUsuario($id);
+
+        if (! $residente) {
+            return redirect()->to(route_to('residentes.index'))
+                             ->with('erro', 'Residente não encontrado.');
+        }
+
+        if (! $residente->user_id) {
+            return redirect()->to(route_to('residentes.detalhes', $id))
+                             ->with('erro', 'Este residente não possui usuário Shield vinculado.');
+        }
+
+        $usersProvider = auth()->getProvider();
+        $user = $usersProvider->findById($residente->user_id);
+
+        if (! $user) {
+            return redirect()->to(route_to('residentes.detalhes', $id))
+                             ->with('erro', 'Registro de usuário não encontrado no Shield.');
+        }
+
+        $novoStatus = $user->active ? 0 : 1;
+        $user->active = $novoStatus;
+        $user->status_message = $novoStatus ? null : 'Acesso suspenso pela administração do condomínio.';
+
+        $usersProvider->save($user);
+
+        $statusTexto = $novoStatus ? 'liberado' : 'bloqueado';
+
+        return redirect()->to(route_to('residentes.detalhes', $id))
+                         ->with('sucesso', "Acesso ao sistema para o residente {$residente->nome} foi {$statusTexto} com sucesso!");
     }
 }
